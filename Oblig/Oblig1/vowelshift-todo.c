@@ -3,17 +3,53 @@
  * You will probably need stdio.h for printf and fprintf
  */
 #include <stdio.h>
-
 #include "vowelshift-todo.h"
+#include <string.h> //importert for å kunne bruke strlen (jeg antok at dette var ok siden main også bruker denne)
 
-/*
- * Find the requirements for these functions in the assignment text.
- */
+//Jeg lager en hjelpemetode for å sjekke om en gitt karakter er en vokal.
+//Denne implementeres under vowelshift() metoden 
+int isVowel(char x);
+
+
 void vowelshift( char* buffer, char repl )
 {
+    int size = strlen(buffer);
+
+    for(int i = 0; i<(size); i++){
+        if(isVowel(buffer[i])){
+            buffer[i] = repl;
+        }
+    }
+    
+    
     /*
-     * You implement this
-     */
-    printf( "I do nothing yet.\n" );
+    *Dette er et notat til meg selv*
+
+    Kunne også gjort følgende:
+
+    for(int i = 0; i<(size); i++){
+        char *current = &buffer[i];     
+        if(isVowel(*current)){
+            *current = repl;
+        }
+    }
+    */
+
+}
+
+
+
+int isVowel(char x){
+    char vowels[] = {'a', 'e', 'i', 'o', 'u'};
+    int length = sizeof(vowels) / sizeof(vowels[0]);
+
+    for(int i = 0; i<length; i++){
+        if(x == vowels[i]){
+            return 1;
+        }
+    }
+
+    return 0;
+
 }
 
