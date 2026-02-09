@@ -87,8 +87,17 @@ CMakeFiles/stringops.dir/stringops-todo.c.o: /uio/hume/student-u19/ljvelpen/IN21
   /usr/include/bits/stdio_lim.h \
   /usr/include/bits/floatn.h \
   /usr/include/bits/floatn-common.h \
-  /uio/hume/student-u19/ljvelpen/IN2140/Oblig/Oblig1/stringops-todo.h
+  /usr/include/string.h \
+  /usr/include/bits/types/locale_t.h \
+  /usr/include/bits/types/__locale_t.h \
+  /usr/include/strings.h \
+  /uio/hume/student-u19/ljvelpen/IN2140/Oblig/Oblig1/stringops-todo.h \
+  /usr/include/ctype.h \
+  /usr/include/bits/endian.h \
+  /usr/include/bits/endianness.h
 
+
+/usr/include/ctype.h:
 
 /uio/hume/student-u19/ljvelpen/IN2140/Oblig/Oblig1/stringops-todo.c:
 
