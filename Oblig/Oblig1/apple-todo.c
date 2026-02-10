@@ -9,39 +9,41 @@
 #include "apple-todo.h"
 
 
-//Lager en hjelpemetode. Denne er implementert nederst i koden. 
-int isApple(char c);
 
 int locateworm( char* buffer )
 {
-    printf( "This function does nothing yet.\n" );
-    return 0;
-}
-
-int removeworm( char* apple )
-{
-    printf( "This function does nothing yet.\n" );
-    return 0;
-}
-
-int isApple(char c){
-    
-    //false = 0 
-    //true = -1 (eller noe annet)
-
-    char characters[] = "aple";
-
     int i = 0;
-
-    while(characters[i] != "\0"){
-        if(c == characters[i]){
-            return -1;
+    while(buffer[i] != '\0'){
+        if(buffer[i] == 'w'){
+            return i;
         }
         i++;
     }
 
-    return 0;
+    return -1;
+}
+
+int removeworm( char* apple )
+{
+    int i = locateworm(apple);
+
+    if(i == -1){
+        return 0;
+    }
+
+    int count = 0;
+
+    while(apple[i] != 'a'){
+        apple[i] = ' ';
+        count++;
+        i++;
+    }
+
+    return count;
+
+
 
 
 
 }
+
