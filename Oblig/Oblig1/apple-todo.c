@@ -8,9 +8,10 @@
 
 #include "apple-todo.h"
 
-/*
- * Find the requirements for these functions in the assignment text.
- */
+
+//Lager en hjelpemetode. Denne er implementert nederst i koden. 
+int isApple(char c);
+
 int locateworm( char* buffer )
 {
     printf( "This function does nothing yet.\n" );
@@ -23,3 +24,24 @@ int removeworm( char* apple )
     return 0;
 }
 
+int isApple(char c){
+    
+    //false = 0 
+    //true = -1 (eller noe annet)
+
+    char characters[] = "aple";
+
+    int i = 0;
+
+    while(characters[i] != "\0"){
+        if(c == characters[i]){
+            return -1;
+        }
+        i++;
+    }
+
+    return 0;
+
+
+
+}
