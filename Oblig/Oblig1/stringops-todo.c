@@ -7,6 +7,8 @@
 #include "stringops-todo.h"
 #include <ctype.h> //For å kunne bruke tolower
 
+
+//FERDIG
 int   stringsum( char *s )
 {
     int size = strlen(s);
@@ -33,21 +35,21 @@ int   distance_between( char *s, char c )
     int size = strlen(s);
 
     int firstPos = -1;
-    int lastPos = -2;
+    int lastPos = -1;
 
     for(int i = 0; i<size; i++){
         if(s[i] == c){
             if (firstPos == -1){
                 firstPos = i;
+            } else {
+                lastPos = i;
             }
-        } else{
-            lastPos = i;
-        }
+        } 
     }
 
-    if(firstPos == -1 ){
+    if(firstPos == -1){
         return -1;
-    }else if (lastPos == -2){
+    }else if (lastPos == -1){
         return 0;
     } else {
         return lastPos - firstPos;
@@ -56,16 +58,50 @@ int   distance_between( char *s, char c )
     
 }
 
+
 char* string_between( char *s, char c )
 {
-    printf( "%s does nothing yet\n", __FUNCTION__ );
-    return NULL;
+
+    int size = strlen(s);
+
+    int first = -1;
+    int last = -1;
+
+    for(int i = 0; i<size; i++){
+        if (s[i] == c){
+            if (first == -1){
+                first = i;
+                s = s+i+1;
+            } else{
+                last = i;
+            }
+        }
+    }
+
+    if (first == -1){
+        return NULL;
+    } else if (last == -1) {
+        return "";
+    } else{
+        s[last] = '\0';  //Dette avslutter strengen!
+        return s;
+    }
+
+    
 }
 
 int  stringsum2( char *s, int *res )
 {
-    printf( "%s does nothing yet\n", __FUNCTION__ );
-    return 0;
+    //Jeg antar at det er greit at jeg bruker stringsum funksjonen fra oppgave a) her, siden det ikke er spesifisert i oppgaven.  
+    *res = stringsum(s);
+
+    if(*res > 0){
+        return 0;
+    }
+
+    return -1;
+  
+  
 }
 
 
