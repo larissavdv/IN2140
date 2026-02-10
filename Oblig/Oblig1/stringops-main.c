@@ -134,6 +134,7 @@ int main(void)
    test_distance_between("Lorem ipsum dolor sit amet", 'y', -1);
    test_distance_between("", 'z', -1);
 
+
    test_num = 1;
    printf("\nTesting string_between()\n");
    test_string_between("Lorem ipsum dolor sit amet", 'o', "rem ipsum dol");

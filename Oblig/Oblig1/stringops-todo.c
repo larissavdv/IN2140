@@ -8,7 +8,7 @@
 #include <ctype.h> //For å kunne bruke tolower
 
 
-//FERDIG
+
 int   stringsum( char *s )
 {
     int size = strlen(s);
