@@ -1,7 +1,0 @@
-/uio/hume/student-u19/ljvelpen/IN2140/Oblig/Oblig1/build/CMakeFiles/vowelshift.dir
-/uio/hume/student-u19/ljvelpen/IN2140/Oblig/Oblig1/build/CMakeFiles/stringops.dir
-/uio/hume/student-u19/ljvelpen/IN2140/Oblig/Oblig1/build/CMakeFiles/apple.dir
-/uio/hume/student-u19/ljvelpen/IN2140/Oblig/Oblig1/build/CMakeFiles/package.dir
-/uio/hume/student-u19/ljvelpen/IN2140/Oblig/Oblig1/build/CMakeFiles/package_source.dir
-/uio/hume/student-u19/ljvelpen/IN2140/Oblig/Oblig1/build/CMakeFiles/edit_cache.dir
-/uio/hume/student-u19/ljvelpen/IN2140/Oblig/Oblig1/build/CMakeFiles/rebuild_cache.dir
