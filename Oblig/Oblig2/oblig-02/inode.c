@@ -8,6 +8,10 @@
 
 struct inode* create_file( struct inode* parent, const char* name, char readonly, int size_in_bytes )
 {
+    if (find_inode_by_name(parent, name) != NULL){ //Finnes allerede en inode med dette navnet 
+        return NULL;
+    }
+
     fprintf( stderr, "%s is not implemented\n", __FUNCTION__ );
     return NULL;
 }
@@ -57,7 +61,6 @@ void save_inodes( const char* master_file_table, struct inode* root )
 }
 
 
-
 //Hjelpefunksjon for å frigjøre ressurser fra heapen dersom noe feiler 
 void free_helper(struct inode *inode){
     if(inode != NULL){
@@ -103,7 +106,7 @@ struct inode* read_one_inode(FILE *file){
         return NULL;
     }
 
-    //nå kan vi allokere minne til navnet 
+    //Nå kan vi allokere minne til navnet 
     inode->name = malloc(size);
     if(inode->name == NULL){
         printf("Malloc feilet\n");
@@ -287,12 +290,14 @@ void fs_shutdown( struct inode* inode )
     }
 
     if (inode->is_directory) {
-        for (uint32_t i = 0; i < inode->num_entries; i++) {
-            struct inode *child = (struct inode*) inode->entries[i];
-            fs_shutdown(child);
+        for (int i = 0; i < inode->num_entries; i++) {
+            struct inode *entry = (struct inode*) inode->entries[i];
+            fs_shutdown(entry); //Kaller fs_shutdown rekursivt på alle barn av et directory
         }
     }
 
+    //Hvis inode ikke er en directory, eller alle barn er frigjort rekursivt, så frigjøres inode
+    //Hvis inode frigjøres for dens entries er frigjort, så har vi ingen måte i frigjøre de på senere 
     free(inode->name);
     free(inode->entries);
     free(inode);
