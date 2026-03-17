@@ -6,14 +6,99 @@
 #include <string.h>
 #include <errno.h>
 
+//statisk variabel for å holde på sist brukte ID
+static uint32_t last_id = 0;
+
 struct inode* create_file( struct inode* parent, const char* name, char readonly, int size_in_bytes )
 {
+    if(parent == NULL || !parent->is_directory){
+        return NULL;
+    }
+
     if (find_inode_by_name(parent, name) != NULL){ //Finnes allerede en inode med dette navnet 
         return NULL;
     }
 
-    fprintf( stderr, "%s is not implemented\n", __FUNCTION__ );
-    return NULL;
+    int name_length = strlen(name) +1; //Må huske å ha med +1 for \0 her
+    int nr_blocks = (size_in_bytes + 4095) / 4096;
+    int nr_extents = (nr_blocks +3) / 4;
+
+
+    struct inode *new = calloc(1, sizeof(struct inode));
+    if(new == NULL){
+        perror("Calloc til ny fil feilet");
+        return NULL;
+    }
+
+    new->name = malloc(name_length);
+    if(new->name == NULL){
+        perror("Malloc av name feilet");
+        return NULL;
+    }
+    strcpy(new->name, name);
+
+    new->id = ++last_id;
+    new->is_directory = 0;
+    new->is_readonly = readonly;
+    new->filesize = size_in_bytes;
+    new->num_entries = nr_extents;
+
+    new->entries = malloc(nr_extents * sizeof(struct Extent));
+    if(new->entries == NULL){
+        perror("malloc til entries feilet");
+        free(new->name);
+        free(new);
+        return NULL;
+    }
+
+
+    /*. ***MÅ SETTE MEG INN I DETTE***
+    
+    struct Extent *ext = (struct Extent *) new->entries;
+    int remaining = nr_blocks;
+    int current;
+
+    for(int i = 0; i < nr_extents; i++){
+        if(remaining > 4){
+            current = 4;
+        } else{
+            current = remaining;
+        }
+        
+        int first_block = allocate_blocks(current);
+
+        if(first_block == -1){
+            perror("Ikke nok minne igjen!");
+            free(new->entries);
+            free(new->name);
+            free(new);
+            return NULL;
+        } 
+
+        ext[i].blockno = first_block;
+        ext[i].extent = current;
+
+        remaining = remaining - current;
+
+    }
+
+    uintptr_t *tmp = realloc(parent->entries,
+                             (parent->num_entries + 1) * sizeof(uintptr_t));
+    if (tmp == NULL) {
+        free(new->entries);
+        free(new->name);
+        free(new);
+        return NULL;
+    }
+
+    parent->entries = tmp;
+    parent->entries[parent->num_entries] = (uintptr_t) new;
+    parent->num_entries++;
+
+    return new;
+
+*/
+    
 }
 
 struct inode* create_dir( struct inode* parent, const char* name )
@@ -236,6 +321,9 @@ struct inode* load_inodes( const char* master_file_table ){
             }
             inodes = tmp;
         }
+
+        last_id = inode->id;
+
         inodes[p] = inode;
         p++;        
     }

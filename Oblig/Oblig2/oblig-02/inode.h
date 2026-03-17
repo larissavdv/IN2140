@@ -117,7 +117,7 @@ void debug_fs( struct inode* node );
  * BEGIN: ADD YOUR OWN FUNCTION DECLARATIONS BELOW HERE
  ******************************************************************************/
 
- //Hjelpefunksjon for å frigjøre ressurser fra heapen dersom noe feiler 
+//Hjelpemetode for å frigjøre ressurser fra heapen dersom noe feiler 
 void free_helper(struct inode *inode);
 
 //Hjelpemetode for å én og én inode fra master_file_table
