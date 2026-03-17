@@ -20,7 +20,17 @@ struct inode* create_dir( struct inode* parent, const char* name )
 
 struct inode* find_inode_by_name( struct inode* parent, const char* name )
 {
-    fprintf( stderr, "%s is not implemented\n", __FUNCTION__ );
+    if(!parent->is_directory || parent == NULL){
+        return NULL;
+    }
+
+    for(int i = 0; i < parent->num_entries; i++){
+        struct inode *child = (struct inode*)parent->entries[i];  //caster uintptr_t til peker til inode 
+        if(child != NULL && strcmp(child->name, name) == 0){
+            return child;
+        }
+    }
+
     return NULL;
 }
 
