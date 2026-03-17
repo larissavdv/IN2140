@@ -20,7 +20,11 @@ struct inode* create_dir( struct inode* parent, const char* name )
 
 struct inode* find_inode_by_name( struct inode* parent, const char* name )
 {
-    if(!parent->is_directory || parent == NULL){
+    if(parent == NULL){
+        return NULL;
+    }
+
+    if(!parent->is_directory){
         return NULL;
     }
 
