@@ -58,27 +58,29 @@ void save_inodes( const char* master_file_table, struct inode* root )
 
 
 
-
-
-//Hjelpefunksjon for å sjekke om fread() feiler
-int read_failed(void *destination, size_t size, size_t count, FILE *file){
-    return fread(destination, size, count, file) != count;
-}
-
 //Hjelpefunksjon for å frigjøre ressurser fra heapen dersom noe feiler 
-void free_helper(FILE *file, struct inode *i){
-    if(file != NULL){
-       fclose(file); 
+void free_helper(struct inode *inode){
+    if(inode != NULL){
+        free(inode->name);
+        free(inode->entries);
+        free(inode);
     }
-    if(i != NULL){
-        free(i->name);
-        free(i->entries);
-        free(i);
-    }
-
 }
 
-struct inode* read_inode(FILE *file){
+struct inode* read_one_inode(FILE *file){
+
+    //Bruker resultatet fra første fread til å vurdere om vi har nådd enden av filen eller ikke 
+    uint32_t id;
+    size_t rc = fread(&id, sizeof(uint32_t), 1, file);
+
+    if (rc != 1) {
+        if (feof(file)) { // Har nådd slutten av filen
+            return NULL;  
+        } else {
+            perror("Feil ved lesing av ID");
+            return NULL;
+        }
+    }
 
     //Vi skal returnere en peker som må kunne "leve videre" etter at funksjonen er ferdig, må derfor legge den i heapen  
     // Bruker calloc i stedet for malloc slik at alle felt i structen settes, og jeg da trygt kan kalle free() senere i hjelpemetoden 
@@ -87,21 +89,17 @@ struct inode* read_inode(FILE *file){
         perror("Calloc feilet");
         return NULL;
     }
-    
 
-    //Leser først ID'en:
-    if(read_failed(&inode->id, sizeof(uint32_t), 1, file)){
-        printf("Feil ved lesing av ID\n");
-        free_helper(file, inode);
-        return NULL;
-    }
+    //Setter den leste IDen til inode sin ID
+    inode->id = id;
+
 
     //Så må vi håndtere navnet. Navnet er lagret som størrelse + selve navnet.
     //Henter først størrelse: 
     uint32_t size;
-    if(read_failed(&size, sizeof(uint32_t), 1, file)){
+    if(fread(&size, sizeof(uint32_t), 1, file) != 1){
         printf("Feil ved lesing av navnelengde\n");
-        free_helper(file, inode);
+        free_helper(inode);
         return NULL;
     }
 
@@ -109,44 +107,44 @@ struct inode* read_inode(FILE *file){
     inode->name = malloc(size);
     if(inode->name == NULL){
         printf("Malloc feilet\n");
-        free_helper(file, inode);
+        free_helper(inode);
         return NULL;
     }
 
     //Nå kan vi lese navnet, fordi vi vet lengden på det 
-    if(read_failed(inode->name, sizeof(char), size, file)){
+    if(fread(inode->name, sizeof(char), size, file) != size){
         printf("Feil ved lesing av navn\n");
-        free_helper(file, inode);
+        free_helper(inode);
         return NULL; 
     }
 
     //Vi leser nå is_directory 
-    if(read_failed(&inode->is_directory, sizeof(char), 1, file)){
+    if(fread(&inode->is_directory, sizeof(char), 1, file) != 1){
         printf("Feil ved lesing av is_directory\n");
-        free_helper(file, inode);
+        free_helper(inode);
         return NULL; 
     }
 
     //Sjekker om is_directory har gyldig verdi 
     if (inode->is_directory != 0 && inode->is_directory != 1) {
         printf("Ugyldig verdi for is_directory\n");
-        free_helper(file, inode);
+        free_helper(inode);
         return NULL;
     }
 
     //leser inn is_readonly
-    if(read_failed(&inode->is_readonly, sizeof(char), 1, file)){
+    if(fread(&inode->is_readonly, sizeof(char), 1, file) != 1){
         printf("Feil ved lesing av is_readonly\n");
-        free_helper(file, inode);
+        free_helper(inode);
         return NULL; 
     }
 
 
     //leser filesize hvis inoden er en file (!is_directory)
     if(!inode->is_directory){
-        if(read_failed(&inode->filesize, sizeof(uint32_t), 1, file)){
+        if(fread(&inode->filesize, sizeof(uint32_t), 1, file)!= 1){
             printf("Feil ved lesing av filesize\n");
-            free_helper(file, inode);
+            free_helper(inode);
             return NULL; 
         }
     }else{
@@ -154,9 +152,9 @@ struct inode* read_inode(FILE *file){
         }
     
     //leser num_entries 
-    if(read_failed(&inode->num_entries, sizeof(uint32_t), 1, file)){
+    if(fread(&inode->num_entries, sizeof(uint32_t), 1, file)!= 1){
         printf("Feil ved lesing av num_entries\n");
-        free_helper(file, inode);
+        free_helper(inode);
         return NULL; 
     }
 
@@ -165,7 +163,7 @@ struct inode* read_inode(FILE *file){
         inode->entries = malloc(inode->num_entries * sizeof(uintptr_t));
         if(inode->entries == NULL){
             perror("Malloc feilet");
-            free_helper(file, inode);
+            free_helper(inode);
             return NULL;
         }
     } 
@@ -174,9 +172,9 @@ struct inode* read_inode(FILE *file){
     if(inode->is_directory){
         //Hvis inode er en directory, så skal vi lagre IDene til de andre inodene i entries 
         for(int i = 0; i<inode->num_entries; i++){
-            if(read_failed(&inode->entries[i], sizeof(uintptr_t), 1, file)){
+            if(fread(&inode->entries[i], sizeof(uintptr_t), 1, file)!= 1){
                 printf("Feilet å lese ID til entries i directory\n");
-                free_helper(file, inode);
+                free_helper(inode);
                 return NULL;
             }
         }
@@ -187,9 +185,9 @@ struct inode* read_inode(FILE *file){
 
         for (int i = 0; i<inode->num_entries; i++){
 
-            if(read_failed(&ext[i], sizeof(struct Extent), 1, file)){
+            if(fread(&ext[i], sizeof(struct Extent), 1, file)!=1){
                 printf("Feilet å lese extend (=blocknr + extent) til entries i fil\n");
-                free_helper(file, inode);
+                free_helper(inode);    
                 return NULL;
             }    
         }
@@ -205,15 +203,12 @@ struct inode* load_inodes( const char* master_file_table ){
         return NULL;
     }
 
-    fseek(file, 0, SEEK_END);       //setter pekeren til slutten av filen
-    long file_end = ftell(file);    //Henter verdien til pekeren
-    fseek(file, 0, SEEK_SET);       //Setter pekeren tilbake til starten av filen, slik at vi kan begynne å lese fra start 
 
-    //Bruker en hjelpemetode read_inode for å lage en struct inode for hver inode i master_file_table
-    //For å holde på alle inodene lagres de i et array. Siden størrelsen er ukjent på forhånd lages et "dynamisk" array 
+    //Bruker en hjelpemetode read_one_inode for å lage en struct inode for hver inode i master_file_table
+    //Disse nodene lagres midlertidig i et array. Siden størrelsen er ukjent på forhånd lages et "dynamisk" array 
 
     int array_size = 10;
-    int i = 0; 
+    int p = 0; //posisjon
 
     struct inode **inodes = malloc(array_size*sizeof(struct inode*));
     if(inodes == NULL){
@@ -221,48 +216,86 @@ struct inode* load_inodes( const char* master_file_table ){
         return NULL;
     }
 
-    while(ftell(file) < file_end){
-        struct inode *inode = read_inode(file);
+    while(1){
+        struct inode *inode = read_one_inode(file);
         if(inode == NULL){
-            printf("Feil ved innlesing av noder");
-            free(inodes);
-            return NULL;
+            break; //Har nådd enden av filen 
         }
-        if(i == array_size){
+
+        if(p == array_size){
             array_size *= 2;
-            inodes = realloc(inodes, array_size * sizeof(struct inode*));
-        }
-        inodes[i] = inode;
-        i++;        
-    }
-
-    //Går nå gjennom alle nodene 
-    for(int j = 0; j < i; j++){
-        struct inode *current_inode = inodes[j];
-
-        if(current_inode->is_directory){
-            //Gå gjennom alle ID'er i entries og erstatt de med pekere til inodene med gitt ID
-            for(int k = 0; k < current_inode->num_entries; k++){
-                uint32_t id = current_inode->entries[k];
-                //struct inode *child_inode = find_inode_by_id(inodes,i, id); //hjelpemetode?? 
-                //current_inode->entries[k] = child_inode;
-                current_inode->entries[k] = (uintptr_t) inodes[id];
-
+            //lagrer i en ny peker i tilfelle realloc feiler, slik at vi ikke mister den "gamle"
+            struct inode **tmp = realloc(inodes, array_size * sizeof(struct inode*));
+            if(tmp == NULL){
+                perror("Realloc feilet");
+                fclose(file);
+                return NULL;
             }
-            
+            inodes = tmp;
         }
-
+        inodes[p] = inode;
+        p++;        
     }
-   
+
+        //Går nå gjennom alle nodene 
+        for(int i = 0; i < p; i++){
+            struct inode *current_inode = inodes[i];
+            if(current_inode->is_directory){
+                //Gå gjennom alle ID'er i entries og erstatt de med pekere til inodene med gitt ID
+                for(int j = 0; j < current_inode->num_entries; j++){
+                    uint32_t current_id = current_inode->entries[j];
+                    //Må nå finne inoden med current_id i inodes 
+                    for(int k = 0; k<p; k++){
+                        struct inode *child = inodes[k];
+                        if(child->id == current_id){
+                            current_inode->entries[j] = (uintptr_t) child;
+                            break;
+                        }
+                    }
+                }
+                
+            }
+        }
+    
+    struct inode *root = NULL;
+
+    for(int i = 0; i<p; i++){
+        if(strcmp(inodes[i]->name, "/") == 0){
+            root = inodes[i];
+            break;
+        }
+    }
+
+    if (root == NULL) {
+        printf("Fant ikke root inode\n");
+        free(inodes);
+        fclose(file);
+        return NULL;
+    }
+
     fclose(file);
-    return inodes[0];
+    free(inodes);
+    return root;
+    
 
 }
 
 void fs_shutdown( struct inode* inode )
 {
-    fprintf( stderr, "%s is not implemented\n", __FUNCTION__ );
-    return;
+    if (inode == NULL) {
+        return;
+    }
+
+    if (inode->is_directory) {
+        for (uint32_t i = 0; i < inode->num_entries; i++) {
+            struct inode *child = (struct inode*) inode->entries[i];
+            fs_shutdown(child);
+        }
+    }
+
+    free(inode->name);
+    free(inode->entries);
+    free(inode);
 }
 
 /* This static variable is used to change the indentation while debug_fs
