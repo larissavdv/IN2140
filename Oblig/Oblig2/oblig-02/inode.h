@@ -117,6 +117,9 @@ void debug_fs( struct inode* node );
  * BEGIN: ADD YOUR OWN FUNCTION DECLARATIONS BELOW HERE
  ******************************************************************************/
 
+//Hjelpefunksjon for å frigjøre ressurser hvis noe feiler i load_inodes 
+void free_helper(FILE *file, struct inode *inode);
+
 /*******************************************************************************
  * END: ADD YOUR OWN FUNCTION DECLARATIONS ABOVE HERE
  ******************************************************************************/
