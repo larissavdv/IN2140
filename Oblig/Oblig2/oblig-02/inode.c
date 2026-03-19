@@ -552,8 +552,8 @@ void write_inode(FILE *file, struct inode* node){
     fwrite(&node->id, sizeof(uint32_t), 1, file);
 
     int len = strlen(node->name)+1;
-    fwrite(&len, sizeof(int), 1, file);
-    fwrite(&node->name, sizeof(char), len, file);
+    fwrite(&len, sizeof(uint32_t), 1, file);
+    fwrite(node->name, sizeof(char), len, file);
     fwrite(&node->is_directory, sizeof(char), 1, file);
     fwrite(&node->is_readonly, sizeof(char), 1, file);
 
@@ -565,11 +565,11 @@ void write_inode(FILE *file, struct inode* node){
     
     if(node->is_directory){
         for(int i = 0; i<node->num_entries; i++){
-            struct inode *child = (struct inode * )node->entries;
-            fwrite(&child->id, sizeof(uintptr_t), 1, file);
+            struct inode *child = (struct inode * )node->entries[i];
+            fwrite(&child->id, sizeof(uint64_t), 1, file);
         }
 
-        for (uint32_t i = 0; i < node->num_entries; i++) {
+        for (int i = 0; i < node->num_entries; i++) {
             struct inode *child = (struct inode *) node->entries[i];
             write_inode(file, child);
         }
@@ -582,12 +582,6 @@ void write_inode(FILE *file, struct inode* node){
         }
 
         
-    }
-
-    if(node->is_directory){
-        for(int i = 0; i<node->num_entries; i++){
-            write_inode(file, (struct inode *) node->entries[i]);
-        }
     }
 
 } 
