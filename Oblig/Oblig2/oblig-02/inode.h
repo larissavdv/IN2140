@@ -123,6 +123,9 @@ void free_helper(struct inode *inode);
 //Hjelpemetode for å én og én inode fra master_file_table
 struct inode* read_one_inode(FILE *file);
 
+//Hjelpemetode for skriving av én inode til fil
+void write_inode(FILE *file, struct inode* node);
+
 /*******************************************************************************
  * END: ADD YOUR OWN FUNCTION DECLARATIONS ABOVE HERE
  ******************************************************************************/

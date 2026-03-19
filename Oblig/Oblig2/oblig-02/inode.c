@@ -8,10 +8,12 @@
 
 //statisk variabel for å holde på sist brukte ID
 static uint32_t last_id = 0;
+static int block_size = 4096;
 
 struct inode* create_file( struct inode* parent, const char* name, char readonly, int size_in_bytes )
 {
-    if(parent == NULL || !parent->is_directory){
+
+    if(parent == NULL || !parent->is_directory){ //en ny fil må lages fra/inni en directory
         return NULL;
     }
 
@@ -19,92 +21,159 @@ struct inode* create_file( struct inode* parent, const char* name, char readonly
         return NULL;
     }
 
-    int name_length = strlen(name) +1; //Må huske å ha med +1 for \0 her
-    int nr_blocks = (size_in_bytes + 4095) / 4096;
-    int nr_extents = (nr_blocks +3) / 4;
-
-
-    struct inode *new = calloc(1, sizeof(struct inode));
+    struct inode *new = calloc(1, sizeof(struct inode));  //Lager en ny inode til filen 
     if(new == NULL){
         perror("Calloc til ny fil feilet");
         return NULL;
     }
 
-    new->name = malloc(name_length);
+    int name_length = strlen(name) +1; //Må huske å ha med +1 for \0 her
+    new->name = malloc(sizeof(char)*name_length);
     if(new->name == NULL){
-        perror("Malloc av name feilet");
+        perror("Malloc til name feilet");
+        free(new);
         return NULL;
     }
-    strcpy(new->name, name);
 
-    new->id = ++last_id;
+    new->id = last_id++;
+    new->name = strcpy(new->name, name);
     new->is_directory = 0;
     new->is_readonly = readonly;
     new->filesize = size_in_bytes;
-    new->num_entries = nr_extents;
+   
+    int blocks_total = (size_in_bytes + (block_size-1)) / block_size;  //Antall blokker som trengs for hele filen
+    int nr_entries = (blocks_total+3)/4;  //En Extend kan holde maks 4 blokker, så dette blir hvor mange strct Extend vi trenger 
 
-    new->entries = malloc(nr_extents * sizeof(struct Extent));
+    new->num_entries = nr_entries;
+    new->entries = malloc(sizeof(struct Extent)*nr_entries);
+
     if(new->entries == NULL){
-        perror("malloc til entries feilet");
+        perror("Malloc til entries feilet");
         free(new->name);
         free(new);
         return NULL;
     }
 
+    int remaining = blocks_total;
+    int calling;
+    int start_block;
 
-    /*. ***MÅ SETTE MEG INN I DETTE***
-    
+    //Caster new->entries pekeren til å være av typen struct Extent *
     struct Extent *ext = (struct Extent *) new->entries;
-    int remaining = nr_blocks;
-    int current;
+    
+    int i = 0;
 
-    for(int i = 0; i < nr_extents; i++){
+    while(remaining > 0){
         if(remaining > 4){
-            current = 4;
+            calling = 4;
         } else{
-            current = remaining;
+            calling = remaining;
         }
-        
-        int first_block = allocate_blocks(current);
 
-        if(first_block == -1){
-            perror("Ikke nok minne igjen!");
-            free(new->entries);
+        start_block = allocate_blocks(calling);
+
+        while(start_block == -1 && calling > 1){
+            //Prøver på nytt med færre extends
+            calling--;
+            start_block = allocate_blocks(calling);
+        }
+
+        if(start_block == -1){
+            perror("Ikke nok minne igjen på disk");
             free(new->name);
+            free(new->entries);
             free(new);
             return NULL;
-        } 
+        }
 
-        ext[i].blockno = first_block;
-        ext[i].extent = current;
+        //hvis allokering var suksessfull
+        remaining = remaining - calling;
+        
 
-        remaining = remaining - current;
+        ext[i].blockno = start_block;
+        ext[i].extent = calling;
+
+        i++;
 
     }
-
-    uintptr_t *tmp = realloc(parent->entries,
-                             (parent->num_entries + 1) * sizeof(uintptr_t));
-    if (tmp == NULL) {
-        free(new->entries);
+   
+    //må realoccere minnet til parent sine entries, for å gi plass til den nye filen 
+    int entries = parent->num_entries;
+    entries++;
+    uintptr_t *parent_entries = realloc(parent->entries, (sizeof(uintptr_t)*entries));
+    if(parent_entries == NULL){
+        perror("realloc av parent entries feilet");
         free(new->name);
+        free(new->entries);
         free(new);
         return NULL;
     }
 
-    parent->entries = tmp;
-    parent->entries[parent->num_entries] = (uintptr_t) new;
+    int next_pos = parent->num_entries;
+    parent->entries = parent_entries;
+    parent->entries[next_pos] = (uintptr_t) new;
     parent->num_entries++;
 
     return new;
-
-*/
     
 }
 
 struct inode* create_dir( struct inode* parent, const char* name )
 {
-    fprintf( stderr, "%s is not implemented\n", __FUNCTION__ );
-    return NULL;
+    if (parent == NULL && strcmp(name, "/") != 0) { //parent kan være null, men bare når vi opprettet root
+        return NULL;
+    }
+    else if(parent != NULL && !parent->is_directory){
+        return NULL;
+    }
+    if (find_inode_by_name(parent, name) != NULL){ //Finnes allerede en inode med dette navnet 
+        return NULL;
+    }
+
+    struct inode *new = calloc(1, sizeof(struct inode));  
+    if(new == NULL){
+        perror("Calloc til nytt directory feilet");
+        return NULL;
+    }
+
+    int name_length = strlen(name) +1;
+    new->name = malloc(sizeof(char)*name_length);
+    if(new->name == NULL){
+        perror("Malloc til name feilet");
+        free(new);
+        return NULL;
+    }
+
+    new->id = last_id++;
+    new->name = strcpy(new->name, name);
+    new->is_directory = 1;
+    new->is_readonly = 0;
+    new->filesize = 0;
+    new->num_entries = 0;
+    new->entries = NULL;   //Et nytt directory har ingen entries ennå 
+
+    if(parent == NULL){ //I tilfellet der vi har opprettet root, så er det ingen parent 
+        return new;
+    }
+
+    int entries = parent->num_entries;
+    entries++;
+    uintptr_t *parent_entries = realloc(parent->entries, (sizeof(uintptr_t)*entries));
+
+    if(parent_entries == NULL){
+        perror("realloc av parent entries feilet");
+        free(new->name);
+        free(new);
+        return NULL;
+    }
+
+    int next_pos = parent->num_entries;
+    parent->entries = parent_entries;
+    parent->entries[next_pos] = (uintptr_t) new;
+    parent->num_entries++;
+
+    return new;
+
 }
 
 struct inode* find_inode_by_name( struct inode* parent, const char* name )
@@ -129,22 +198,107 @@ struct inode* find_inode_by_name( struct inode* parent, const char* name )
 
 int delete_file( struct inode* parent, struct inode* node )
 {
-    fprintf( stderr, "%s is not implemented\n", __FUNCTION__ );
-    return -1;
+    if(parent == NULL || node == NULL){
+        return -1;
+    }
+
+    if(!parent->is_directory || node->is_directory){
+        return -1;
+    }
+
+    //finner posisjonen til node i parent sin entries, som senere kan brukes til å fjerne den fra entries 
+    int pos = -1;
+
+    for(int i = 0; i<parent->num_entries; i++){
+        if((struct inode *)parent->entries[i] == node){
+            pos = i;
+            break;
+        }
+    }
+
+    if(pos == -1){
+        return -1; //Noden finnes ikke i parent!
+    }
+
+    struct Extent *ext = (struct Extent *) node->entries; 
+
+    for(int i = 0; i<node->num_entries; i++){
+        int blocknr = ext[i].blockno;
+        int remaining = ext[i].extent;
+
+        while(remaining>0){
+            free_block(blocknr);
+            blocknr++;
+            remaining--;
+        }
+    }
+
+    //flytter entriene i entries 
+    for(int i = pos; i<parent->num_entries-1; i++){
+        parent->entries[i] = parent->entries[i+1];
+    }
+
+    parent->num_entries--;
+
+    free(node->name);
+    free(node->entries);
+    free(node);
+    return 0;
+
 }
 
 int delete_dir( struct inode* parent, struct inode* node )
 {
-    fprintf( stderr, "%s is not implemented\n", __FUNCTION__ );
-    return -1;
+    if(node != NULL && !node->is_directory){
+        return -1;
+    }
+    if(parent != NULL && !parent->is_directory){
+        return -1;
+    }
+
+    if(find_inode_by_name(parent, node->name) == NULL){
+        return -1; //node finnes ikke i entries til parent 
+    }
+
+    if(node->num_entries != 0){
+        return -1; //directory er ikke tomt 
+    }
+
+    int pos = -1;
+
+    for(int i = 0; i<parent->num_entries; i++){
+        if((struct inode *)parent->entries[i] == node){
+            pos = i;
+            break;
+        }
+    }
+    
+    for(int i = pos; i<parent->num_entries-1; i++){
+        parent->entries[i] = parent->entries[i+1];
+    }
+
+    parent->num_entries--;
+
+    free(node->name);
+    free(node->entries);
+    free(node);
+
+    return 0;
+
 }
 
 void save_inodes( const char* master_file_table, struct inode* root )
 {
-    fprintf( stderr, "%s is not implemented\n", __FUNCTION__ );
-    return;
-}
+    FILE *file = fopen(master_file_table, "wb");
+    if(file == NULL){
+        perror("Kunne ikke åpne master file table");
+        return;
+    }
 
+    write_inode(file, root);
+
+    fclose(file);
+}
 
 //Hjelpefunksjon for å frigjøre ressurser fra heapen dersom noe feiler 
 void free_helper(struct inode *inode){
@@ -154,7 +308,7 @@ void free_helper(struct inode *inode){
         free(inode);
     }
 }
-
+//Hjelpefunksjon for å lese én og én inode 
 struct inode* read_one_inode(FILE *file){
 
     //Bruker resultatet fra første fread til å vurdere om vi har nådd enden av filen eller ikke 
@@ -289,15 +443,12 @@ struct inode* load_inodes( const char* master_file_table ){
     if(file == NULL){
         perror("Kunne ikke åpne fil");
         return NULL;
-    }
-
-
-    //Bruker en hjelpemetode read_one_inode for å lage en struct inode for hver inode i master_file_table
-    //Disse nodene lagres midlertidig i et array. Siden størrelsen er ukjent på forhånd lages et "dynamisk" array 
+    } 
 
     int array_size = 10;
     int p = 0; //posisjon
 
+    //Nodene som skal leses lagres midlertidig i et array. Siden størrelsen er ukjent på forhånd lages et "dynamisk" array
     struct inode **inodes = malloc(array_size*sizeof(struct inode*));
     if(inodes == NULL){
         perror("Malloc feilet");
@@ -305,6 +456,7 @@ struct inode* load_inodes( const char* master_file_table ){
     }
 
     while(1){
+        //Bruker hjelpemetoden read_one_inode
         struct inode *inode = read_one_inode(file);
         if(inode == NULL){
             break; //Har nådd enden av filen 
@@ -373,7 +525,7 @@ struct inode* load_inodes( const char* master_file_table ){
 
 void fs_shutdown( struct inode* inode )
 {
-    if (inode == NULL) {
+    if (inode == NULL) { 
         return;
     }
 
@@ -390,6 +542,56 @@ void fs_shutdown( struct inode* inode )
     free(inode->entries);
     free(inode);
 }
+
+//Hjelpefunksjon for skriving av én inode til fil
+void write_inode(FILE *file, struct inode* node){
+    if(node == NULL){
+        return;
+    }
+
+    fwrite(&node->id, sizeof(uint32_t), 1, file);
+
+    int len = strlen(node->name)+1;
+    fwrite(&len, sizeof(int), 1, file);
+    fwrite(&node->name, sizeof(char), len, file);
+    fwrite(&node->is_directory, sizeof(char), 1, file);
+    fwrite(&node->is_readonly, sizeof(char), 1, file);
+
+    if(!node->is_directory){
+        fwrite(&node->filesize, sizeof(uint32_t), 1, file);
+    }
+    
+    fwrite(&node->num_entries, sizeof(uint32_t), 1, file);
+    
+    if(node->is_directory){
+        for(int i = 0; i<node->num_entries; i++){
+            struct inode *child = (struct inode * )node->entries;
+            fwrite(&child->id, sizeof(uintptr_t), 1, file);
+        }
+
+        for (uint32_t i = 0; i < node->num_entries; i++) {
+            struct inode *child = (struct inode *) node->entries[i];
+            write_inode(file, child);
+        }
+
+    }else{
+        struct Extent *ext = (struct Extent *) node->entries;
+        for(int i = 0; i<node->num_entries; i++){
+            fwrite(&ext[i].blockno, sizeof(uint32_t), 1, file);
+            fwrite(&ext[i].extent, sizeof(uint32_t), 1, file);
+        }
+
+        
+    }
+
+    if(node->is_directory){
+        for(int i = 0; i<node->num_entries; i++){
+            write_inode(file, (struct inode *) node->entries[i]);
+        }
+    }
+
+} 
+
 
 /* This static variable is used to change the indentation while debug_fs
  * is walking through the tree of inodes and prints information.
