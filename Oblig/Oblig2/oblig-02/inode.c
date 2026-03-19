@@ -566,7 +566,7 @@ void write_inode(FILE *file, struct inode* node){
     if(node->is_directory){
         for(int i = 0; i<node->num_entries; i++){
             struct inode *child = (struct inode * )node->entries[i];
-            fwrite(&child->id, sizeof(uint64_t), 1, file);
+            fwrite(&child->id, sizeof(uintptr_t), 1, file);
         }
 
         for (int i = 0; i < node->num_entries; i++) {
