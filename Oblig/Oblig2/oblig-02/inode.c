@@ -300,6 +300,113 @@ void save_inodes( const char* master_file_table, struct inode* root )
     fclose(file);
 }
 
+struct inode* load_inodes( const char* master_file_table ){
+
+    FILE *file = fopen(master_file_table, "rb");
+    if(file == NULL){
+        perror("Kunne ikke åpne fil");
+        return NULL;
+    } 
+
+    int array_size = 10;
+    int p = 0; //posisjon
+
+    //Nodene som skal leses lagres midlertidig i et array. Siden størrelsen er ukjent på forhånd lages et "dynamisk" array
+    struct inode **inodes = malloc(array_size*sizeof(struct inode*));
+    if(inodes == NULL){
+        perror("Malloc feilet");
+        return NULL;
+    }
+
+    while(1){
+        //Bruker hjelpemetoden read_one_inode
+        struct inode *inode = read_one_inode(file);
+        if(inode == NULL){
+            break; //Har nådd enden av filen 
+        }
+
+        if(p == array_size){
+            array_size *= 2;
+            //lagrer i en ny peker i tilfelle realloc feiler, slik at vi ikke mister den "gamle"
+            struct inode **tmp = realloc(inodes, array_size * sizeof(struct inode*));
+            if(tmp == NULL){
+                perror("Realloc feilet");
+                fclose(file);
+                return NULL;
+            }
+            inodes = tmp;
+        }
+
+        last_id = inode->id;
+
+        inodes[p] = inode;
+        p++;        
+    }
+
+        //Går nå gjennom alle nodene 
+        for(int i = 0; i < p; i++){
+            struct inode *current_inode = inodes[i];
+            if(current_inode->is_directory){
+                //Gå gjennom alle ID'er i entries og erstatt de med pekere til inodene med gitt ID
+                for(int j = 0; j < current_inode->num_entries; j++){
+                    uint32_t current_id = current_inode->entries[j];
+                    //Må nå finne inoden med current_id i inodes 
+                    for(int k = 0; k<p; k++){
+                        struct inode *child = inodes[k];
+                        if(child->id == current_id){
+                            current_inode->entries[j] = (uintptr_t) child;
+                            break;
+                        }
+                    }
+                }
+                
+            }
+        }
+    
+    struct inode *root = NULL;
+
+    for(int i = 0; i<p; i++){
+        if(strcmp(inodes[i]->name, "/") == 0){
+            root = inodes[i];
+            break;
+        }
+    }
+
+    if (root == NULL) {
+        printf("Fant ikke root inode\n");
+        free(inodes);
+        fclose(file);
+        return NULL;
+    }
+
+    fclose(file);
+    free(inodes);
+    return root;
+    
+
+}
+
+void fs_shutdown( struct inode* inode )
+{
+    if (inode == NULL) { 
+        return;
+    }
+
+    if (inode->is_directory) {
+        for (int i = 0; i < inode->num_entries; i++) {
+            struct inode *entry = (struct inode*) inode->entries[i];
+            fs_shutdown(entry); //Kaller fs_shutdown rekursivt på alle barn av et directory
+        }
+    }
+
+    //Hvis inode ikke er en directory, eller alle barn er frigjort rekursivt, så frigjøres inode
+    //Hvis inode frigjøres for dens entries er frigjort, så har vi ingen måte i frigjøre de på senere 
+    free(inode->name);
+    free(inode->entries);
+    free(inode);
+}
+
+
 //Hjelpefunksjon for å frigjøre ressurser fra heapen dersom noe feiler 
 void free_helper(struct inode *inode){
     if(inode != NULL){
@@ -436,113 +543,6 @@ struct inode* read_one_inode(FILE *file){
     }
     return inode;
 }
-
-struct inode* load_inodes( const char* master_file_table ){
-
-    FILE *file = fopen(master_file_table, "rb");
-    if(file == NULL){
-        perror("Kunne ikke åpne fil");
-        return NULL;
-    } 
-
-    int array_size = 10;
-    int p = 0; //posisjon
-
-    //Nodene som skal leses lagres midlertidig i et array. Siden størrelsen er ukjent på forhånd lages et "dynamisk" array
-    struct inode **inodes = malloc(array_size*sizeof(struct inode*));
-    if(inodes == NULL){
-        perror("Malloc feilet");
-        return NULL;
-    }
-
-    while(1){
-        //Bruker hjelpemetoden read_one_inode
-        struct inode *inode = read_one_inode(file);
-        if(inode == NULL){
-            break; //Har nådd enden av filen 
-        }
-
-        if(p == array_size){
-            array_size *= 2;
-            //lagrer i en ny peker i tilfelle realloc feiler, slik at vi ikke mister den "gamle"
-            struct inode **tmp = realloc(inodes, array_size * sizeof(struct inode*));
-            if(tmp == NULL){
-                perror("Realloc feilet");
-                fclose(file);
-                return NULL;
-            }
-            inodes = tmp;
-        }
-
-        last_id = inode->id;
-
-        inodes[p] = inode;
-        p++;        
-    }
-
-        //Går nå gjennom alle nodene 
-        for(int i = 0; i < p; i++){
-            struct inode *current_inode = inodes[i];
-            if(current_inode->is_directory){
-                //Gå gjennom alle ID'er i entries og erstatt de med pekere til inodene med gitt ID
-                for(int j = 0; j < current_inode->num_entries; j++){
-                    uint32_t current_id = current_inode->entries[j];
-                    //Må nå finne inoden med current_id i inodes 
-                    for(int k = 0; k<p; k++){
-                        struct inode *child = inodes[k];
-                        if(child->id == current_id){
-                            current_inode->entries[j] = (uintptr_t) child;
-                            break;
-                        }
-                    }
-                }
-                
-            }
-        }
-    
-    struct inode *root = NULL;
-
-    for(int i = 0; i<p; i++){
-        if(strcmp(inodes[i]->name, "/") == 0){
-            root = inodes[i];
-            break;
-        }
-    }
-
-    if (root == NULL) {
-        printf("Fant ikke root inode\n");
-        free(inodes);
-        fclose(file);
-        return NULL;
-    }
-
-    fclose(file);
-    free(inodes);
-    return root;
-    
-
-}
-
-void fs_shutdown( struct inode* inode )
-{
-    if (inode == NULL) { 
-        return;
-    }
-
-    if (inode->is_directory) {
-        for (int i = 0; i < inode->num_entries; i++) {
-            struct inode *entry = (struct inode*) inode->entries[i];
-            fs_shutdown(entry); //Kaller fs_shutdown rekursivt på alle barn av et directory
-        }
-    }
-
-    //Hvis inode ikke er en directory, eller alle barn er frigjort rekursivt, så frigjøres inode
-    //Hvis inode frigjøres for dens entries er frigjort, så har vi ingen måte i frigjøre de på senere 
-    free(inode->name);
-    free(inode->entries);
-    free(inode);
-}
-
 //Hjelpefunksjon for skriving av én inode til fil
 void write_inode(FILE *file, struct inode* node){
     if(node == NULL){
