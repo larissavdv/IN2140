@@ -407,14 +407,6 @@ void fs_shutdown( struct inode* inode )
 }
 
 
-//Hjelpefunksjon for å frigjøre ressurser fra heapen dersom noe feiler 
-void free_helper(struct inode *inode){
-    if(inode != NULL){
-        free(inode->name);
-        free(inode->entries);
-        free(inode);
-    }
-}
 //Hjelpefunksjon for å lese én og én inode 
 struct inode* read_one_inode(FILE *file){
 
@@ -543,6 +535,16 @@ struct inode* read_one_inode(FILE *file){
     }
     return inode;
 }
+
+//Hjelpefunksjon for å frigjøre ressurser fra heapen dersom noe feiler 
+void free_helper(struct inode *inode){
+    if(inode != NULL){
+        free(inode->name);
+        free(inode->entries);
+        free(inode);
+    }
+}
+
 //Hjelpefunksjon for skriving av én inode til fil
 void write_inode(FILE *file, struct inode* node){
     if(node == NULL){
@@ -568,7 +570,7 @@ void write_inode(FILE *file, struct inode* node){
             struct inode *child = (struct inode * )node->entries[i];
             fwrite(&child->id, sizeof(uintptr_t), 1, file);
         }
-
+        //kaller write_inode rekursivt for alle barn til node 
         for (int i = 0; i < node->num_entries; i++) {
             struct inode *child = (struct inode *) node->entries[i];
             write_inode(file, child);
